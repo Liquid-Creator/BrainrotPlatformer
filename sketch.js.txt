@@ -25,8 +25,31 @@ let soundEffects = {};
 let backgroundMusic;
 
 function preload() {
-  loadAssets();
+  // Load brainrot-style sprites
+  brainrotSprites["Default"] = createGraphics(40, 60);
+  brainrotSprites["Default"].fill("blue");
+  brainrotSprites["Default"].rect(0, 0, 40, 60);
 
+  brainrotSprites["Pink"] = createGraphics(40, 60);
+  brainrotSprites["Pink"].fill("pink");
+  brainrotSprites["Pink"].rect(0, 0, 40, 60);
+
+  brainrotSprites["Ninja"] = createGraphics(40, 60);
+  brainrotSprites["Ninja"].fill("black");
+  brainrotSprites["Ninja"].rect(0, 0, 40, 60);
+
+  // Load sound assets
+  soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump");
+  soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint");
+  soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock");
+  soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn");
+  soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup");
+  backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg");
+
+  // Mark as ready after loading
+  assetsLoaded = true;
+
+  // Load levels from raw JSON
   let raw = {
     "levels": [
       {
@@ -147,25 +170,5 @@ function generateRandomLevel() {
 }
 
 function loadAssets() {
-  brainrotSprites["Default"] = createGraphics(40, 60);
-  brainrotSprites["Default"].fill("blue");
-  brainrotSprites["Default"].rect(0, 0, 40, 60);
-
-  brainrotSprites["Pink"] = createGraphics(40, 60);
-  brainrotSprites["Pink"].fill("pink");
-  brainrotSprites["Pink"].rect(0, 0, 40, 60);
-
-  brainrotSprites["Ninja"] = createGraphics(40, 60);
-  brainrotSprites["Ninja"].fill("black");
-  brainrotSprites["Ninja"].rect(0, 0, 40, 60);
-
-  soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump");
-  soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint");
-  soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock");
-  soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn");
-  soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup");
-
-  backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg");
-
-  assetsLoaded = true;
+  // This function is now intentionally left blank
 }
