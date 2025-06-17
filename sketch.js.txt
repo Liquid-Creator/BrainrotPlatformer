@@ -39,15 +39,13 @@ function preload() {
   brainrotSprites["Ninja"].rect(0, 0, 40, 60);
 
   // Load sound assets
-  soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump");
-  soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint");
-  soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock");
-  soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn");
-  soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup");
-  backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg");
-
-  // Mark as ready after loading
-  assetsLoaded = true;
+  soundFormats('mp3', 'ogg');
+  soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump", checkAssetsLoaded);
+  soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint", checkAssetsLoaded);
+  soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock", checkAssetsLoaded);
+  soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn", checkAssetsLoaded);
+  soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup", checkAssetsLoaded);
+  backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg", checkAssetsLoaded);
 
   // Load levels from raw JSON
   let raw = {
@@ -81,10 +79,20 @@ function preload() {
   points = getItem('points') || 0;
 }
 
+let assetsToLoad = 6;
+let assetsLoadedCount = 0;
+function checkAssetsLoaded() {
+  assetsLoadedCount++;
+  if (assetsLoadedCount >= assetsToLoad) {
+    assetsLoaded = true;
+  }
+}
+
 function setup() {
   createCanvas(2560, 1440);
   frameRate(60);
   loadLevel(0);
+  userStartAudio();
   if (backgroundMusic && !backgroundMusic.isPlaying()) {
     backgroundMusic.loop();
   }
