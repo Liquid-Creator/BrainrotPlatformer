@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainrot Platformer Game</title>
+    <!-- Link to the p5.js library from a CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <style>
+        /* Basic styling to center the canvas and provide a simple background */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #282c34; /* Dark background for contrast */
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+            color: #fff;
+        }
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            border: 2px solid #fff; /* Optional: add a border to the canvas */
+            border-radius: 10px; /* Rounded corners for the canvas */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); /* Subtle shadow */
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Roblox-style 2D Platformer Game with Loading Screen, Skins, Moving Platforms, Animations + UI + JSON Levels + Unlock Notifications + Sound Effects + Save/Load + Background Music
+
+        let player;
+        let platforms = [];
+        let movingPlatforms = [];
+        let traps = [];
+        let checkpoints = [];
+        let cameraX = 0;
+        let gravity = 1.2;
+        let jumpStrength = -20;
+        let startPoint;
+        let respawnPoint;
+        let goal;
+        let level = 0;
+        let levels = [];
+        let unlockedCharacters = [];
+        let selectedCharacter = "Default";
+        let points = 0;
+        let showCharacterUI = true;
+        let assetsLoaded = false; // This will now become true immediately in setup
+        let brainrotSprites = {};
+        let notification = "";
+        let notificationTimer = 0;
+        // let soundEffects = {}; // No longer needed
+        // let backgroundMusic; // No longer needed
+
+        /**
+         * p5.js preload function: This runs before setup and is used to load assets.
+         * It loads character sprites and level data from JSON. Audio loading is skipped.
+         */
+        function preload() {
+            // Initialize character sprites as p5.Graphics objects
+            // These are simple colored rectangles for demonstration.
+            brainrotSprites["Default"] = createGraphics(40, 60);
+            brainrotSprites["Default"].fill("blue");
+            brainrotSprites["Default"].rect(0, 0, 40, 60);
+
+            brainrotSprites["Pink"] = createGraphics(40, 60);
+            brainrotSprites["Pink"].fill("pink");
+            brainrotSprites["Pink"].rect(0, 0, 40, 60);
+
+            brainrotSprites["Ninja"] = createGraphics(40, 60);
+            brainrotSprites["Ninja"].fill("black");
+            brainrotSprites["Ninja"].rect(0, 0, 40, 60);
+
+            // --- AUDIO LOADING SKIPPED ---
+            // soundFormats('mp3', 'ogg');
+            // soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump", () => checkAssetsLoaded("jump"), (err) => checkAssetsLoaded("jump_error", err));
+            // soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint", () => checkAssetsLoaded("checkpoint"), (err) => checkAssetsLoaded("checkpoint_error", err));
+            // soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock", () => checkAssetsLoaded("unlock"), (err) => checkAssetsLoaded("unlock_error", err));
+            // soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn", () => checkAssetsLoaded("respawn"), (err) => checkAssetsLoaded("respawn_error", err));
+            // soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup", () => checkAssetsLoaded("levelup"), (err) => checkAssetsLoaded("levelup_error", err));
+            // backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg", () => checkAssetsLoaded("backgroundMusic"), (err) => checkAssetsLoaded("backgroundMusic_error", err));
+
+            // Define game levels using a JSON-like structure
+            let raw = {
+                "levels": [
+                    {
+                        "start": [100, 300],
+                        "platforms": [[50, 400, 300, 30], [400, 350, 200, 30], [700, 300, 200, 30]],
+                        "movingPlatforms": [[1000, 250, 150, 20, 50, "horizontal"]],
+                        "traps": [["Lava", 600, 430, 300, 20], ["Spike", 900, 420, 40, 40]],
+                        "checkpoints": [[750, 250, 30, 50]],
+                        "goal": [1200, 200, 60, 60]
+                    },
+                    {
+                        "start": [100, 500],
+                        "platforms": [[50, 600, 300, 30], [400, 550, 200, 30], [650, 500, 250, 30]],
+                        "movingPlatforms": [[950, 450, 200, 20, 80, "vertical"]],
+                        "traps": [["Lava", 500, 630, 200, 20], ["Spike", 850, 600, 40, 40]],
+                        "checkpoints": [[700, 470, 30, 50]],
+                        "goal": [1100, 400, 60, 60]
+                    }
+                ]
+            };
+            // Parse raw level data into game objects
+            levels = raw.levels.map(lvl => parseLevel(lvl));
+
+            // Load saved game data from local storage
+            if (getItem('unlockedCharacters')) {
+                unlockedCharacters = getItem('unlockedCharacters');
+            } else {
+                unlockedCharacters = ["Default"]; // Default character always unlocked
+            }
+            selectedCharacter = getItem('selectedCharacter') || "Default";
+            points = getItem('points') || 0;
+        }
+
+        // With no external assets to load (except the p5.js library itself),
+        // assetsLoaded can be set to true directly in setup, or upon setup completion.
+        // The checkAssetsLoaded function and assetsToLoad/assetsLoadedCount are
+        // simplified or removed for now.
+        function checkAssetsLoaded() {
+            // This function is effectively no-op or can be removed if assetsLoaded is managed differently.
+            // For now, we'll just set assetsLoaded to true immediately in setup.
+            console.log("No external assets to wait for.");
+        }
+
+
+        /**
+         * p5.js setup function: Initializes the canvas, sets frame rate, and loads the first level.
+         */
+        function setup() {
+            createCanvas(1280, 720); // Responsive canvas size for typical desktop/laptop screens
+            frameRate(60);
+            loadLevel(0); // Load the first level
+            
+            // Set assetsLoaded to true immediately since no audio is being waited for.
+            assetsLoaded = true;
+            console.log("Game setup complete. Assets considered loaded.");
+
+            // userStartAudio(); // Not needed without sound effects
+            // if (backgroundMusic && !backgroundMusic.isPlaying()) { // Not needed without background music
+            //     backgroundMusic.loop();
+            // }
+        }
+
+        /**
+         * p5.js draw function: This runs continuously, rendering the game state.
+         */
+        function draw() {
+            // Display loading screen until all assets are loaded
+            if (!assetsLoaded) { // This condition should now be false very quickly
+                drawLoadingScreen();
+                return;
+            }
+
+            background(135, 206, 235); // Sky blue background
+
+            // If character UI is active, draw it and skip game logic
+            if (showCharacterUI) {
+                drawCharacterUI();
+                return;
+            }
+
+            // Smoothly move the camera to follow the player
+            cameraX = lerp(cameraX, player.pos.x - width / 2, 0.1);
+            translate(-cameraX, 0); // Apply camera translation
+
+            // Update and display game elements
+            for (let p of platforms) p.display();
+            for (let mp of movingPlatforms) mp.update();
+            for (let t of traps) { t.display(); t.checkCollision(player); }
+            for (let cp of checkpoints) { cp.display(); cp.check(player); }
+
+            goal.display();
+            goal.check(player);
+
+            player.update();
+            player.display();
+
+            // Display UI elements like points and current character
+            fill(0); // Black text
+            textSize(24);
+            text(`Points: ${points}`, cameraX + 20, 40);
+            text(`Character: ${selectedCharacter}`, cameraX + 20, 70);
+
+            // Display temporary notifications
+            if (notificationTimer > 0) {
+                fill(0, 200); // Semi-transparent black background for notification
+                rect(cameraX + width / 2 - 200, 100, 400, 60, 20); // Centered notification box
+                fill(255); // White text
+                textAlign(CENTER, CENTER);
+                textSize(24);
+                text(notification, cameraX + width / 2, 130);
+                notificationTimer--; // Decrement timer
+            }
+        }
+
+        /**
+         * Draws the loading screen with progress.
+         */
+        function drawLoadingScreen() {
+            background(0); // Black loading screen
+            fill(255); // White text
+            textAlign(CENTER, CENTER);
+            textSize(48);
+            text("Loading Game Assets...", width / 2, height / 2);
+            // Progress will quickly jump to 100% since no external assets are awaited
+            textSize(24);
+            text(`100%`, width / 2, height / 2 + 50);
+        }
+
+        /**
+         * Function to generate a random level (currently not used in main flow but available).
+         * @returns {Object} A parsed level object.
+         */
+        function generateRandomLevel() {
+            let levelData = {
+                start: [100, random(200, 600)],
+                platforms: [],
+                movingPlatforms: [],
+                traps: [],
+                checkpoints: [],
+                goal: [random(1000, 1400), random(100, 600), 60, 60]
+            };
+
+            for (let i = 0; i < 6; i++) {
+                levelData.platforms.push([100 + i * 200, random(250, 600), random(150, 300), 30]);
+            }
+
+            levelData.movingPlatforms.push([
+                random(800, 1200), random(200, 500), 150, 20, 50, random(["horizontal", "vertical"])
+            ]);
+
+            levelData.traps.push(["Lava", random(500, 1000), 620, 200, 20]);
+            levelData.traps.push(["Spike", random(1000, 1200), 600, 40, 40]);
+
+            levelData.checkpoints.push([
+                random(600, 900), 400, 30, 50
+            ]);
+
+            return parseLevel(levelData);
+        }
+
+        // Placeholder for loadAssets, as assets are handled in preload
+        function loadAssets() {}
+
+        /**
+         * Handles keyboard input for player movement and UI toggling.
+         */
+        function keyPressed() {
+            if (showCharacterUI) {
+                // Allow closing character UI with ESC
+                if (keyCode === ESCAPE) {
+                    showCharacterUI = false;
+                    // Background music related code removed
+                }
+                return;
+            }
+
+            // Player jump on Space or Up arrow
+            if (keyCode === 32 || keyCode === UP_ARROW) {
+                player.jump();
+            }
+            // Toggle character UI with ESC during gameplay
+            if (keyCode === ESCAPE) {
+                showCharacterUI = !showCharacterUI;
+            }
+        }
+
+        /**
+         * Handles mouse clicks, primarily for character selection in the UI.
+         */
+        function mousePressed() {
+            if (showCharacterUI) {
+                // Calculate character UI element positions for click detection
+                let charWidth = 100;
+                let charHeight = 150;
+                let startX = width / 2 - (unlockedCharacters.length * charWidth + (unlockedCharacters.length - 1) * 20) / 2;
+                let startY = height / 2 - charHeight / 2 + 50;
+
+                // Check if an unlocked character was clicked
+                for (let i = 0; i < unlockedCharacters.length; i++) {
+                    let charName = unlockedCharacters[i];
+                    let x = startX + i * (charWidth + 20);
+                    let y = startY;
+
+                    if (mouseX > x && mouseX < x + charWidth && mouseY > y && mouseY < y + charHeight) {
+                        selectedCharacter = unlockedCharacters[i];
+                        storeItem('selectedCharacter', selectedCharacter); // Save selection
+                        showNotification(`Character changed to ${selectedCharacter}!`, 90);
+                        player.updateSprite(brainrotSprites[selectedCharacter]);
+                        return;
+                    }
+                }
+
+                // Check for close button click
+                let closeButtonX = width / 2 + 150;
+                let closeButtonY = height / 2 - 200;
+                if (mouseX > closeButtonX && mouseX < closeButtonX + 100 &&
+                    mouseY > closeButtonY && mouseY < closeButtonY + 40) {
+                    showCharacterUI = false;
+                    // Background music related code removed
+                }
+            }
+        }
+
+        /**
+         * Loads a specific game level based on its index.
+         * @param {number} levelIndex - The index of the level to load.
+         */
+        function loadLevel(levelIndex) {
+            if (levelIndex >= levels.length) {
+                // If all levels are completed, loop back to the first level or handle game over.
+                level = 0;
+                showNotification("All levels completed! Starting over.", 120);
+                // Sound effects related code removed
+            } else {
+                level = levelIndex;
+            }
+
+            let currentLevelData = levels[level];
+            startPoint = currentLevelData.start;
+            platforms = currentLevelData.platforms;
+            movingPlatforms = currentLevelData.movingPlatforms;
+            traps = currentLevelData.traps;
+            checkpoints = currentLevelData.checkpoints;
+            goal = currentLevelData.goal;
+
+            // Initialize player at the level's start point with the selected character sprite
+            player = new Player(startPoint.x, startPoint.y, brainrotSprites[selectedCharacter]);
+            respawnPoint = createVector(startPoint.x, startPoint.y); // Set initial respawn point
+
+            // Reset all checkpoints for the new level
+            for (let cp of checkpoints) {
+                cp.active = false;
+            }
+        }
+
+        /**
+         * Displays a temporary notification message on screen.
+         * @param {string} msg - The message to display.
+         * @param {number} duration - How long the message should be displayed (in frames).
+         */
+        function showNotification(msg, duration) {
+            notification = msg;
+            notificationTimer = duration;
+        }
+
+        /**
+         * Unlocks a new character and saves the state.
+         * @param {string} charName - The name of the character to unlock.
+         */
+        function unlockCharacter(charName) {
+            if (!unlockedCharacters.includes(charName)) {
+                unlockedCharacters.push(charName);
+                storeItem('unlockedCharacters', unlockedCharacters); // Save to local storage
+                showNotification(`New Character Unlocked: ${charName}!`, 120);
+                // Sound effects related code removed
+            }
+        }
+
+        /**
+         * Draws the character selection UI overlay.
+         */
+        function drawCharacterUI() {
+            background(0, 150); // Semi-transparent black overlay
+
+            fill(255);
+            textAlign(CENTER, CENTER);
+            textSize(48);
+            text("Select Your Character", width / 2, height / 2 - 200);
+
+            // Layout calculation for character selection grid
+            let charWidth = 100;
+            let charHeight = 150;
+            let startX = width / 2 - (unlockedCharacters.length * charWidth + (unlockedCharacters.length - 1) * 20) / 2;
+            let startY = height / 2 - charHeight / 2 + 50;
+
+            // Draw each unlocked character's preview
+            for (let i = 0; i < unlockedCharacters.length; i++) {
+                let charName = unlockedCharacters[i];
+                let x = startX + i * (charWidth + 20);
+                let y = startY;
+
+                image(brainrotSprites[charName], x, y, charWidth, charHeight); // Draw sprite
+
+                // Highlight border for selected character
+                if (charName === selectedCharacter) {
+                    noFill();
+                    stroke(255, 255, 0); // Yellow border
+                    strokeWeight(5);
+                    rect(x, y, charWidth, charHeight, 10); // Rounded corners
+                } else {
+                    noFill();
+                    stroke(255); // White border for unselected
+                    strokeWeight(2);
+                    rect(x, y, charWidth, charHeight, 10); // Rounded corners
+                }
+
+                fill(255);
+                noStroke();
+                textSize(20);
+                text(charName, x + charWidth / 2, y + charHeight + 20); // Character name below sprite
+            }
+
+            // Draw "Close" button
+            fill(255, 0, 0); // Red button
+            rect(width / 2 + 150, height / 2 - 200, 100, 40, 10); // Rounded button
+            fill(255); // White text
+            textSize(20);
+            text("Close", width / 2 + 200, height / 2 - 180);
+        }
+
+        // --- GAME OBJECT CLASSES ---
+
+        /**
+         * Helper function for Axis-Aligned Bounding Box (AABB) collision detection.
+         * @param {number} x1 - X position of first rectangle.
+         * @param {number} y1 - Y position of first rectangle.
+         * @param {number} w1 - Width of first rectangle.
+         * @param {number} h1 - Height of first rectangle.
+         * @param {number} x2 - X position of second rectangle.
+         * @param {number} y2 - Y position of second rectangle.
+         * @param {number} w2 - Width of second rectangle.
+         * @param {number} h2 - Height of second rectangle.
+         * @returns {boolean} True if rectangles overlap, false otherwise.
+         */
+        function collideRectRect(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 &&
+                   x1 + w1 > x2 &&
+                   y1 < y2 + h2 &&
+                   y1 + h1 > y2;
+        }
+
+        /**
+         * Player Class: Represents the controllable character.
+         */
+        class Player {
+            constructor(x, y, sprite) {
+                this.pos = createVector(x, y);
+                this.vel = createVector(0, 0);
+                this.width = 40;
+                this.height = 60;
+                this.onGround = false;
+                this.sprite = sprite; // p5.Graphics object for the character's appearance
+                this.isJumping = false; // Tracks if player is currently jumping
+            }
+
+            /**
+             * Updates the player's position, applies gravity, and handles collisions.
+             */
+            update() {
+                // Apply gravity to vertical velocity
+                this.vel.y += gravity;
+                this.pos.y += this.vel.y;
+
+                // Horizontal movement based on arrow keys
+                if (keyIsDown(LEFT_ARROW)) {
+                    this.pos.x -= 5;
+                }
+                if (keyIsDown(RIGHT_ARROW)) {
+                    this.pos.x += 5;
+                }
+
+                this.onGround = false; // Reset ground state each frame
+
+                // Check collisions with all static and moving platforms
+                for (let p of platforms) {
+                    this.collidePlatform(p);
+                }
+                for (let mp of movingPlatforms) {
+                    this.collidePlatform(mp);
+                }
+
+                // Prevent player from falling off the bottom of the screen (acts as a temporary floor)
+                if (this.pos.y + this.height > height) {
+                    this.pos.y = height - this.height;
+                    this.vel.y = 0;
+                    this.onGround = true;
+                    this.isJumping = false;
+                }
+            }
+
+            /**
+             * Displays the player character on the canvas.
+             */
+            display() {
+                image(this.sprite, this.pos.x, this.pos.y, this.width, this.height);
+            }
+
+            /**
+             * Makes the player jump if on the ground or allowed to double jump.
+             */
+            jump() {
+                // Allow jump if on ground or if it's the first jump (isJumping is false for double jump mechanics)
+                if (this.onGround || !this.isJumping) {
+                    this.vel.y = jumpStrength;
+                    this.onGround = false;
+                    this.isJumping = true;
+                    // if (soundEffects.jump && !soundEffects.jump.isPlaying()) soundEffects.jump.play(); // Sound removed
+                }
+            }
+
+            /**
+             * Handles collision detection and response with a given platform.
+             * @param {Platform|MovingPlatform} p - The platform object to check collision against.
+             */
+            collidePlatform(p) {
+                if (collideRectRect(this.pos.x, this.pos.y, this.width, this.height, p.x, p.y, p.w, p.h)) {
+                    // If player is falling and lands on top of the platform
+                    if (this.vel.y > 0 && this.pos.y + this.height - this.vel.y <= p.y) {
+                        this.pos.y = p.y - this.height; // Snap to top of platform
+                        this.vel.y = 0; // Stop vertical movement
+                        this.onGround = true; // Mark as on ground
+                        this.isJumping = false; // Reset jump state
+
+                        // If it's a moving platform, move player horizontally with it
+                        if (p instanceof MovingPlatform) {
+                            this.pos.x += p.velX;
+                        }
+                    }
+                    // Basic side collision to prevent player from sticking to sides
+                    else if (this.pos.y + this.height > p.y && this.pos.y < p.y + p.h) {
+                        if (this.pos.x < p.x && this.pos.x + this.width > p.x) { // Collided from left
+                            this.pos.x = p.x - this.width;
+                        } else if (this.pos.x > p.x && this.pos.x < p.x + p.w) { // Collided from right
+                            this.pos.x = p.x + p.w;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Respawns the player at the last active respawn point.
+             */
+            respawn() {
+                this.pos.set(respawnPoint.x, respawnPoint.y);
+                this.vel.set(0, 0); // Reset velocity
+                // if (soundEffects.respawn && !soundEffects.respawn.isPlaying()) soundEffects.respawn.play(); // Sound removed
+                showNotification("Respawned!", 60);
+            }
+
+            /**
+             * Changes the player's visual sprite.
+             * @param {p5.Graphics} newSprite - The new p5.Graphics object for the player.
+             */
+            updateSprite(newSprite) {
+                this.sprite = newSprite;
+            }
+        }
+
+        /**
+         * Platform Class: Represents static platforms the player can stand on.
+         */
+        class Platform {
+            constructor(x, y, w, h) {
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+            }
+
+            /**
+             * Displays the platform on the canvas.
+             */
+            display() {
+                fill(100, 50, 0); // Brown color for platforms
+                rect(this.x, this.y, this.w, this.h, 5); // Rounded corners
+            }
+        }
+
+        /**
+         * MovingPlatform Class: Extends Platform, adding movement functionality.
+         */
+        class MovingPlatform extends Platform {
+            constructor(x, y, w, h, moveAmount, direction) {
+                super(x, y, w, h);
+                this.startX = x;
+                this.startY = y;
+                this.moveAmount = moveAmount; // Distance the platform moves
+                this.direction = direction; // "horizontal" or "vertical"
+                this.speed = 2; // Movement speed
+                this.velX = 0; // Current horizontal velocity (for player tracking)
+                this.velY = 0; // Current vertical velocity (for player tracking)
+            }
+
+            /**
+             * Updates the position of the moving platform.
+             */
+            update() {
+                if (this.direction === "horizontal") {
+                    this.x += this.speed;
+                    this.velX = this.speed;
+                    // Reverse direction if limits are reached
+                    if (this.x > this.startX + this.moveAmount || this.x < this.startX) {
+                        this.speed *= -1;
+                        this.velX = this.speed;
+                    }
+                } else if (this.direction === "vertical") {
+                    this.y += this.speed;
+                    this.velY = this.speed;
+                    // Reverse direction if limits are reached
+                    if (this.y > this.startY + this.moveAmount || this.y < this.startY) {
+                        this.speed *= -1;
+                        this.velY = this.speed;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Trap Class: Represents obstacles that cause the player to respawn.
+         */
+        class Trap {
+            constructor(type, x, y, w, h) {
+                this.type = type; // "Lava" or "Spike"
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+            }
+
+            /**
+             * Displays the trap on the canvas based on its type.
+             */
+            display() {
+                if (this.type === "Lava") {
+                    fill(255, 0, 0, 200); // Red, semi-transparent for lava
+                    rect(this.x, this.y, this.w, this.h, 5); // Rounded corners
+                } else if (this.type === "Spike") {
+                    fill(150); // Grey for spikes
+                    // Draw a series of triangles for spikes
+                    let spikeCount = floor(this.w / 20); // Number of spikes
+                    for (let i = 0; i < spikeCount; i++) {
+                        triangle(
+                            this.x + i * 20, this.y + this.h, // Bottom-left point
+                            this.x + i * 20 + 10, this.y,     // Top point
+                            this.x + i * 20 + 20, this.y + this.h // Bottom-right point
+                        );
+                    }
+                }
+            }
+
+            /**
+             * Checks if the player is colliding with the trap and respawns them if so.
+             * @param {Player} player - The player object to check collision against.
+             */
+            checkCollision(player) {
+                if (collideRectRect(player.pos.x, player.pos.y, player.width, player.height, this.x, this.y, this.w, this.h)) {
+                    player.respawn();
+                }
+            }
+        }
+
+        /**
+         * Checkpoint Class: Marks a point where the player will respawn if they die.
+         */
+        class Checkpoint {
+            constructor(x, y, w, h) {
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+                this.active = false; // Whether this checkpoint has been activated
+            }
+
+            /**
+             * Displays the checkpoint, changing color based on its active state.
+             */
+            display() {
+                if (this.active) {
+                    fill(0, 255, 0, 150); // Green if active
+                } else {
+                    fill(0, 0, 255, 150); // Blue if inactive
+                }
+                rect(this.x, this.y, this.w, this.h, 10); // Rounded corners
+                fill(255);
+                textSize(16); // Slightly larger text
+                textAlign(CENTER, CENTER);
+                text("CP", this.x + this.w / 2, this.y + this.h / 2);
+            }
+
+            /**
+             * Checks if the player has reached the checkpoint and activates it.
+             * @param {Player} player - The player object to check against.
+             */
+            check(player) {
+                if (collideRectRect(player.pos.x, player.pos.y, player.width, player.height, this.x, this.y, this.w, this.h)) {
+                    if (!this.active) {
+                        this.active = true;
+                        respawnPoint = createVector(this.x, this.y); // Set new respawn point
+                        showNotification("Checkpoint Reached!", 90);
+                        // if (soundEffects.checkpoint && !soundEffects.checkpoint.isPlaying()) soundEffects.checkpoint.play(); // Sound removed
+
+                        // Example: Unlock characters based on which checkpoint is reached
+                        if (checkpoints.indexOf(this) === 0 && !unlockedCharacters.includes("Pink")) {
+                            unlockCharacter("Pink");
+                        } else if (checkpoints.indexOf(this) === 1 && !unlockedCharacters.includes("Ninja")) {
+                            unlockCharacter("Ninja");
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Goal Class: Represents the end of a level.
+         */
+        class Goal {
+            constructor(x, y, w, h) {
+                this.x = x;
+                this.y = y;
+                this.w = w;
+                this.h = h;
+            }
+
+            /**
+             * Displays the goal on the canvas.
+             */
+            display() {
+                fill(255, 215, 0, 200); // Gold color for goal, semi-transparent
+                ellipse(this.x + this.w / 2, this.y + this.h / 2, this.w, this.h); // Circle shape
+                fill(255);
+                textSize(20);
+                textAlign(CENTER, CENTER);
+                text("GOAL", this.x + this.w / 2, this.y + this.h / 2);
+            }
+
+            /**
+             * Checks if the player has reached the goal and advances to the next level.
+             * @param {Player} player - The player object to check against.
+             */
+            check(player) {
+                if (collideRectRect(player.pos.x, player.pos.y, player.width, player.height, this.x, this.y, this.w, this.h)) {
+                    showNotification("Level Complete!", 90);
+                    points += 100; // Award points
+                    storeItem('points', points); // Save points
+                    loadLevel(level + 1); // Load the next level
+                    // if (soundEffects.levelup && !soundEffects.levelup.isPlaying()) soundEffects.levelup.play(); // Sound removed
+                }
+            }
+        }
+
+        /**
+         * Parses raw level data from JSON format into actual game objects.
+         * @param {Object} lvlData - The raw level data object from the JSON.
+         * @returns {Object} An object containing instantiated game elements for the level.
+         */
+        function parseLevel(lvlData) {
+            let parsedPlatforms = lvlData.platforms.map(p => new Platform(p[0], p[1], p[2], p[3]));
+            let parsedMovingPlatforms = lvlData.movingPlatforms.map(mp => new MovingPlatform(mp[0], mp[1], mp[2], mp[3], mp[4], mp[5]));
+            let parsedTraps = lvlData.traps.map(t => new Trap(t[0], t[1], t[2], t[3], t[4]));
+            let parsedCheckpoints = lvlData.checkpoints.map(cp => new Checkpoint(cp[0], cp[1], cp[2], cp[3]));
+            let parsedGoal = new Goal(lvlData.goal[0], lvlData.goal[1], lvlData.goal[2], lvlData.goal[3]);
+
+            return {
+                start: createVector(lvlData.start[0], lvlData.start[1]), // Convert array to p5.Vector
+                platforms: parsedPlatforms,
+                movingPlatforms: parsedMovingPlatforms,
+                traps: parsedTraps,
+                checkpoints: parsedCheckpoints,
+                goal: parsedGoal
+            };
+        }
+    </script>
+</body>
+</html>
