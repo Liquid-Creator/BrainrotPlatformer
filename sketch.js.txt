@@ -1,0 +1,171 @@
+// Roblox-style 2D Platformer Game with Loading Screen, Skins, Moving Platforms, Animations + UI + JSON Levels + Unlock Notifications + Sound Effects + Save/Load + Background Music
+
+let player;
+let platforms = [];
+let movingPlatforms = [];
+let traps = [];
+let checkpoints = [];
+let cameraX = 0;
+let gravity = 1.2;
+let jumpStrength = -20;
+let startPoint;
+let respawnPoint;
+let goal;
+let level = 0;
+let levels = [];
+let unlockedCharacters = [];
+let selectedCharacter = "Default";
+let points = 0;
+let showCharacterUI = true;
+let assetsLoaded = false;
+let brainrotSprites = {};
+let notification = "";
+let notificationTimer = 0;
+let soundEffects = {};
+let backgroundMusic;
+
+function preload() {
+  loadAssets();
+
+  let raw = {
+    "levels": [
+      {
+        "start": [100, 300],
+        "platforms": [[50, 400, 300, 30], [400, 350, 200, 30], [700, 300, 200, 30]],
+        "movingPlatforms": [[1000, 250, 150, 20, 50, "horizontal"]],
+        "traps": [["Lava", 600, 430, 300, 20], ["Spike", 900, 420, 40, 40]],
+        "checkpoints": [[750, 250, 30, 50]],
+        "goal": [1200, 200, 60, 60]
+      },
+      {
+        "start": [100, 500],
+        "platforms": [[50, 600, 300, 30], [400, 550, 200, 30], [650, 500, 250, 30]],
+        "movingPlatforms": [[950, 450, 200, 20, 80, "vertical"]],
+        "traps": [["Lava", 500, 630, 200, 20], ["Spike", 850, 600, 40, 40]],
+        "checkpoints": [[700, 470, 30, 50]],
+        "goal": [1100, 400, 60, 60]
+      }
+    ]
+  };
+  levels = raw.levels.map(lvl => parseLevel(lvl));
+
+  if (getItem('unlockedCharacters')) {
+    unlockedCharacters = getItem('unlockedCharacters');
+  } else {
+    unlockedCharacters = ["Default"];
+  }
+  selectedCharacter = getItem('selectedCharacter') || "Default";
+  points = getItem('points') || 0;
+}
+
+function setup() {
+  createCanvas(2560, 1440);
+  frameRate(60);
+  loadLevel(0);
+  if (backgroundMusic && !backgroundMusic.isPlaying()) {
+    backgroundMusic.loop();
+  }
+}
+
+function draw() {
+  if (!assetsLoaded) {
+    drawLoadingScreen();
+    return;
+  }
+
+  background(135, 206, 235);
+
+  if (showCharacterUI) {
+    drawCharacterUI();
+    return;
+  }
+
+  cameraX = lerp(cameraX, player.pos.x - width / 2, 0.1);
+  translate(-cameraX, 0);
+
+  for (let p of platforms) p.display();
+  for (let mp of movingPlatforms) mp.update();
+  for (let t of traps) { t.display(); t.checkCollision(player); }
+  for (let cp of checkpoints) { cp.display(); cp.check(player); }
+
+  goal.display();
+  goal.check(player);
+
+  player.update();
+  player.display();
+
+  fill(0);
+  textSize(24);
+  text(`Points: ${points}`, cameraX + 20, 40);
+  text(`Character: ${selectedCharacter}`, cameraX + 20, 70);
+
+  if (notificationTimer > 0) {
+    fill(0, 200);
+    rect(cameraX + width / 2 - 200, 100, 400, 60, 20);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(24);
+    text(notification, cameraX + width / 2, 130);
+    notificationTimer--;
+  }
+}
+
+function drawLoadingScreen() {
+  background(0);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(48);
+  text("Loading Game Assets...", width / 2, height / 2);
+}
+
+function generateRandomLevel() {
+  let levelData = {
+    start: [100, random(200, 600)],
+    platforms: [],
+    movingPlatforms: [],
+    traps: [],
+    checkpoints: [],
+    goal: [random(1000, 1400), random(100, 600), 60, 60]
+  };
+
+  for (let i = 0; i < 6; i++) {
+    levelData.platforms.push([100 + i * 200, random(250, 600), random(150, 300), 30]);
+  }
+
+  levelData.movingPlatforms.push([
+    random(800, 1200), random(200, 500), 150, 20, 50, random(["horizontal", "vertical"])
+  ]);
+
+  levelData.traps.push(["Lava", random(500, 1000), 620, 200, 20]);
+  levelData.traps.push(["Spike", random(1000, 1200), 600, 40, 40]);
+
+  levelData.checkpoints.push([
+    random(600, 900), 400, 30, 50
+  ]);
+
+  return parseLevel(levelData);
+}
+
+function loadAssets() {
+  brainrotSprites["Default"] = createGraphics(40, 60);
+  brainrotSprites["Default"].fill("blue");
+  brainrotSprites["Default"].rect(0, 0, 40, 60);
+
+  brainrotSprites["Pink"] = createGraphics(40, 60);
+  brainrotSprites["Pink"].fill("pink");
+  brainrotSprites["Pink"].rect(0, 0, 40, 60);
+
+  brainrotSprites["Ninja"] = createGraphics(40, 60);
+  brainrotSprites["Ninja"].fill("black");
+  brainrotSprites["Ninja"].rect(0, 0, 40, 60);
+
+  soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump");
+  soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint");
+  soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock");
+  soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn");
+  soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup");
+
+  backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg");
+
+  assetsLoaded = true;
+}
