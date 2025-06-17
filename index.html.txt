@@ -16,10 +16,11 @@
     </style>
   </head>
   <body>
-    <!-- ✅ Load p5.js library from CDN -->
+    <!-- ✅ Load p5.js first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
 
-    <!-- ✅ Then load your game code -->
+    <!-- ✅ Then your sketch -->
     <script src="sketch.js"></script>
   </body>
 </html>
+
