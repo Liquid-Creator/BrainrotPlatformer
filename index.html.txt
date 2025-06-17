@@ -80,12 +80,13 @@
             // If sounds don't play, these URLs might be the cause. Consider hosting
             // your audio files directly on GitHub or another stable CDN.
             soundFormats('mp3', 'ogg');
-            soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump", checkAssetsLoaded);
-            soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint", checkAssetsLoaded);
-            soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock", checkAssetsLoaded);
-            soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn", checkAssetsLoaded);
-            soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup", checkAssetsLoaded);
-            backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg", checkAssetsLoaded);
+            // Modified loadSound calls to ensure checkAssetsLoaded is called on error too
+            soundEffects.jump = loadSound("https://tinyurl.com/brainrot-jump", () => checkAssetsLoaded("jump"), (err) => checkAssetsLoaded("jump_error", err));
+            soundEffects.checkpoint = loadSound("https://tinyurl.com/brainrot-checkpoint", () => checkAssetsLoaded("checkpoint"), (err) => checkAssetsLoaded("checkpoint_error", err));
+            soundEffects.unlock = loadSound("https://tinyurl.com/brainrot-unlock", () => checkAssetsLoaded("unlock"), (err) => checkAssetsLoaded("unlock_error", err));
+            soundEffects.respawn = loadSound("https://tinyurl.com/brainrot-respawn", () => checkAssetsLoaded("respawn"), (err) => checkAssetsLoaded("respawn_error", err));
+            soundEffects.levelup = loadSound("https://tinyurl.com/brainrot-levelup", () => checkAssetsLoaded("levelup"), (err) => checkAssetsLoaded("levelup_error", err));
+            backgroundMusic = loadSound("https://tinyurl.com/brainrot-bg", () => checkAssetsLoaded("backgroundMusic"), (err) => checkAssetsLoaded("backgroundMusic_error", err));
 
             // Define game levels using a JSON-like structure
             let raw = {
@@ -124,11 +125,23 @@
         // Keep track of loaded assets for the loading screen
         let assetsToLoad = 6; // Initial number of sounds + background music
         let assetsLoadedCount = 0;
-        function checkAssetsLoaded() {
+        /**
+         * Increments the count of loaded assets and checks if all assets are loaded.
+         * Logs status to console.
+         * @param {string} assetName - Name of the asset (for logging).
+         * @param {Error} [error] - Optional error object if loading failed.
+         */
+        function checkAssetsLoaded(assetName, error = null) {
             assetsLoadedCount++;
-            console.log(`Assets loaded: ${assetsLoadedCount}/${assetsToLoad}`); // For debugging
+            if (error) {
+                console.error(`Error loading asset '${assetName}':`, error);
+            } else {
+                console.log(`Asset loaded: ${assetName} - ${assetsLoadedCount}/${assetsToLoad}`);
+            }
+
             if (assetsLoadedCount >= assetsToLoad) {
                 assetsLoaded = true;
+                console.log("All assets finished loading!");
             }
         }
 
@@ -772,3 +785,4 @@
     </script>
 </body>
 </html>
+
